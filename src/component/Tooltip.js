@@ -34,7 +34,7 @@ const propTypes = {
   wrapperStyle: PropTypes.object,
   contentStyle: PropTypes.object,
   cursor: PropTypes.oneOfType([PropTypes.bool, PropTypes.element, PropTypes.object]),
-
+  
   coordinate: PropTypes.shape({
     x: PropTypes.number,
     y: PropTypes.number,
@@ -43,6 +43,7 @@ const propTypes = {
     x: PropTypes.number,
     y: PropTypes.number,
   }),
+  placement: PropTypes.string,
 
   label: PropTypes.any,
   payload: PropTypes.arrayOf(PropTypes.shape({
@@ -83,6 +84,7 @@ const defaultProps = {
   itemSorter: () => -1,
   filterNull: true,
   useTranslate3d: false,
+  placement: 'right',
 };
 
 const renderContent = (content, props) => {
@@ -159,10 +161,25 @@ class Tooltip extends Component {
       const { boxWidth, boxHeight } = this.state;
 
       if (boxWidth > 0 && boxHeight > 0 && coordinate) {
-        translateX = position && isNumber(position.x) ? position.x : Math.max(
-          coordinate.x + boxWidth + offset > (viewBox.x + viewBox.width) ?
-            coordinate.x - boxWidth - offset :
-            coordinate.x + offset, viewBox.x);
+        translateX = (() => {
+          if (position && isNumber(position.x)) {
+            return position.x;
+          }
+          if (placement === 'left') {
+            return Math.max(
+              coordinate.x - boxWidth - offset > viewBox.x 
+                ? coordinate.x - boxWidth - offset
+                : coordinate.x + offset,
+                viewBox.x,
+              );
+          } else {
+            return Math.max(
+              coordinate.x + boxWidth + offset > (viewBox.x + viewBox.width) ?
+                coordinate.x - boxWidth - offset :
+                coordinate.x + offset, viewBox.x
+              );
+          }
+        })();
 
         translateY = position && isNumber(position.y) ? position.y : Math.max(
           coordinate.y + boxHeight + offset > (viewBox.y + viewBox.height) ?

@@ -1,6 +1,6 @@
 {
   "name": "fsd-team-recharts",
-  "version": "1.4.6",
+  "version": "1.4.7",
   "description": "FSD React charts",
   "main": "lib/index",
   "module": "es6/index",

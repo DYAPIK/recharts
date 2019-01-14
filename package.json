@@ -1,6 +1,6 @@
 {
-  "name": "recharts",
-  "version": "1.4.2",
+  "name": "fsd-recharts",
+  "version": "1.4.3",
   "description": "React charts",
   "main": "lib/index",
   "module": "es6/index",
@@ -30,7 +30,8 @@
     "test": "cross-env NODE_ENV=test karma start test/karma.conf.js",
     "lint": "eslint src",
     "autofix": "eslint src --fix",
-    "analyse": "cross-env NODE_ENV=analyse webpack src/index.js -o umd/Recharts.js"
+    "analyse": "cross-env NODE_ENV=analyse webpack src/index.js -o umd/Recharts.js",
+    "prepublish": "npm run build"
   },
   "pre-commit": [],
   "pre-push": [

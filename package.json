@@ -12,7 +12,8 @@
     "es6",
     "lib",
     "umd",
-    "src"
+    "src",
+    "index.d.ts"
   ],
   "keywords": [
     "react",

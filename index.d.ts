@@ -660,9 +660,9 @@ export interface ReferenceDotProps extends EventAttributes, Partial<Presentation
     xAxisId?: string | number;
     yAxisId?: string | number;
     shape?: ContentRenderer<
-    EventAttributes
-    & Partial<PresentationAttributes<number | string, number | string>>
-    & { cx: number; cy: number; }
+        EventAttributes
+        & Partial<PresentationAttributes<number | string, number | string>>
+        & { cx: number; cy: number; }
     > | React.ReactElement<any>;
 }
 
@@ -680,9 +680,9 @@ export interface ReferenceLineProps extends Partial<PresentationAttributes<numbe
     xAxisId?: string | number;
     yAxisId?: string | number;
     shape?: ContentRenderer<
-    EventAttributes
-    & Partial<PresentationAttributes<number | string, number | string>>
-    & { x1: number; y1: number; x2: number; y2: number; }
+        EventAttributes
+        & Partial<PresentationAttributes<number | string, number | string>>
+        & { x1: number; y1: number; x2: number; y2: number; }
     > | React.ReactElement<any>;
 }
 
@@ -918,6 +918,7 @@ export interface XAxisProps extends EventAttributes {
     // see label section at http://recharts.org/#/en-US/api/XAxis
     label?: string | number | Label | LabelProps;
     allowDuplicatedCategory?: boolean;
+    stroke: string;
 }
 
 export class XAxis extends React.Component<XAxisProps> { }

@@ -34,7 +34,7 @@ const propTypes = {
   wrapperStyle: PropTypes.object,
   contentStyle: PropTypes.object,
   cursor: PropTypes.oneOfType([PropTypes.bool, PropTypes.element, PropTypes.object]),
-  
+
   coordinate: PropTypes.shape({
     x: PropTypes.number,
     y: PropTypes.number,
@@ -150,6 +150,7 @@ class Tooltip extends Component {
       visibility: active && hasPayload ? 'visible' : 'hidden',
       position: 'absolute',
       top: 0,
+      maxWidth: viewBox && viewBox.width ? viewBox.width * 0.9 : undefined,
       ...wrapperStyle,
     };
     let translateX, translateY;
@@ -165,20 +166,27 @@ class Tooltip extends Component {
           if (position && isNumber(position.x)) {
             return position.x;
           }
+          const mouseXPosition = coordinate.x - viewBox.left;
+          const isCanPlaceLeft = mouseXPosition - boxWidth - offset >= 0;
+          const isCanPlaceRight = mouseXPosition + boxWidth + offset <= viewBox.width;
+
           if (placement === 'left') {
-            return Math.max(
-              coordinate.x - boxWidth - offset > viewBox.x 
-                ? coordinate.x - boxWidth - offset
-                : coordinate.x + offset,
-                viewBox.x,
-              );
-          } else {
-            return Math.max(
-              coordinate.x + boxWidth + offset > (viewBox.x + viewBox.width) ?
-                coordinate.x - boxWidth - offset :
-                coordinate.x + offset, viewBox.x
-              );
+            if (isCanPlaceLeft) {
+              return coordinate.x - boxWidth - offset;
+            }
+            if (isCanPlaceRight) {
+              return coordinate.x + offset;
+            }
+          } else if (placement === 'right') {
+            if (isCanPlaceRight) {
+              return coordinate.x + offset;
+            }
+            if (isCanPlaceLeft) {
+              return coordinate.x - boxWidth - offset;
+            }
           }
+          return viewBox.x + (viewBox.width - boxWidth) / 2;
+
         })();
 
         translateY = position && isNumber(position.y) ? position.y : Math.max(

@@ -12,13 +12,14 @@ import Sector from '../shape/Sector';
 import Dot from '../shape/Dot';
 import Rectangle from '../shape/Rectangle';
 
+
 import { findAllByType, findChildByType, getDisplayName, parseChildIndex,
   getPresentationAttributes, validateWidthHeight, isChildrenEqual,
   renderByOrder, getReactEventByType, filterEventAttributes } from '../util/ReactUtils';
 
 import CartesianAxis from '../cartesian/CartesianAxis';
 import Brush from '../cartesian/Brush';
-import { getOffset, calculateChartCoordinate } from '../util/DOMUtils';
+import { getOffset, calculateChartCoordinate, getStringSize } from '../util/DOMUtils';
 import { getAnyElementOfObject, hasDuplicate, uniqueId, isNumber, findEntryInArray } from '../util/DataUtils';
 import { calculateActiveTickIndex, getMainColorOfGraphicItem, getBarSizeList,
   getBarPosition, appendOffsetOfLegend, getLegendProps, combineEventHandlers,
@@ -28,7 +29,7 @@ import { calculateActiveTickIndex, getMainColorOfGraphicItem, getBarSizeList,
   detectReferenceElementsDomain, parseSpecifiedDomain, parseDomainOfCategoryAxis } from '../util/ChartUtils';
 import { inRangeOfSector, polarToCartesian } from '../util/PolarUtils';
 import { shallowEqual } from '../util/PureRender';
-import { eventCenter, SYNC_EVENT } from '../util/Events';
+import { eventCenter, SYNC_EVENT, UPDATE_EVENT } from '../util/Events';
 
 const ORIENT_MAP = {
   xAxis: ['bottom', 'top'],
@@ -215,6 +216,13 @@ const generateCategoricalChart = ({
       }
       if (typeof this.triggeredAfterMouseMove.cancel === 'function') {
         this.triggeredAfterMouseMove.cancel();
+      }
+
+      if (window.maxLeftWidthOfYAxis && window.maxLeftWidthOfYAxis[this.props.syncId]) {
+        window.maxLeftWidthOfYAxis[this.props.syncId] = undefined;
+      }
+      if (window.maxRightWidthOfYAxis && window.maxRightWidthOfYAxis[this.props.syncId]) {
+        window.maxRightWidthOfYAxis[this.props.syncId] = undefined;
       }
     }
 
@@ -793,6 +801,104 @@ const generateCategoricalChart = ({
 
       const offset = this.calculateOffset({ ...axisObj, props, graphicalItems });
 
+      if (axisObj.yAxisMap) {
+        const clonedAxis = { ...axisObj };
+        Object.keys(clonedAxis).forEach((key) => {
+          clonedAxis[key] = formatAxisMap(props, clonedAxis[key], offset, key.replace('Map', ''), chartName);
+        });
+
+        const yKeys = Object.keys(clonedAxis.yAxisMap);
+        const leftYKeys = yKeys.filter(key => clonedAxis.yAxisMap[key] && clonedAxis.yAxisMap[key].orientation === 'left');
+        const rightYKeys = yKeys.filter(key => clonedAxis.yAxisMap[key] && clonedAxis.yAxisMap[key].orientation === 'right');
+
+        const marginBetweenLineAndTicks = 8;
+        const parseToMaxTickLenght = (key) => {
+          const yAxis = clonedAxis.yAxisMap[key];
+
+          if (yAxis.hide) {
+            return 0;
+          }
+
+          const finalTicks = getTicksOfAxis(yAxis, true);
+
+          if (finalTicks.some(({ value }) => typeof value !== 'number' || value === Infinity || value === -Infinity)) {
+            return 0;
+          }
+          const formattedTicks = finalTicks.map(tick => yAxis.tickFormatter(tick.value));
+          const maxLengthTick = formattedTicks.sort((a, b) => b.length - a.length)[0];
+          let tickWidth = getStringSize(maxLengthTick, yAxis.tick).width + 2 * marginBetweenLineAndTicks;
+
+          if (yAxis.label) {
+            tickWidth += getStringSize(yAxis.label.value, yAxis.label.style).height;
+          }
+
+          axisObj.yAxisMap[key].width = tickWidth;
+
+          if (yAxis.mirror) {
+            return 0;
+          }
+          return tickWidth;
+        };
+        const summ = (acc, curr) => acc + curr;
+        const leftMaxTickLength = leftYKeys.map(parseToMaxTickLenght).reduce(summ, 0);
+        const rightMaxTickLength = rightYKeys.map(parseToMaxTickLenght).reduce(summ, 0);
+
+        let leftOffset = leftMaxTickLength + props.margin.left;
+        let rightOffset = rightMaxTickLength + props.margin.right;
+
+
+        if (!window.maxLeftWidthOfYAxis) {
+          window.maxLeftWidthOfYAxis = {};
+        }
+        if (!window.maxRightWidthOfYAxis) {
+          window.maxRightWidthOfYAxis = {};
+        }
+
+        let needUpdate = false;
+
+        const updateWidthIfNeed = (side) => {
+
+          const sideMaxWidth = side === 'left' ?
+            window.maxLeftWidthOfYAxis : window.maxRightWidthOfYAxis;
+
+          const sideOffset = side === 'left' ? leftOffset : rightOffset;
+
+          const ySideKeys = side === 'left' ? leftYKeys : rightYKeys;
+
+          const margin = side === 'left' ? props.margin.left : props.margin.right;
+
+          if (sideMaxWidth[props.syncId] === undefined) {
+            sideMaxWidth[props.syncId] = sideOffset;
+          } else if (sideMaxWidth[props.syncId] < sideOffset) {
+            sideMaxWidth[props.syncId] = sideOffset;
+            needUpdate = true;
+          } else {
+            if (side === 'left') {
+              leftOffset = sideMaxWidth[props.syncId];
+            } else {
+              rightOffset = sideMaxWidth[props.syncId];
+            }
+
+            // нужно для случая при котором у каждого леерса по 1 метрике в колонке - тогда нужно чтобы у них была одинаковая ширина
+            if (ySideKeys && ySideKeys[0] && ySideKeys.length === 1 && !axisObj.yAxisMap[ySideKeys[0]].mirror) {
+              axisObj.yAxisMap[ySideKeys[0]].width = sideMaxWidth[props.syncId] - margin;
+            }
+          }
+        };
+
+        updateWidthIfNeed('left');
+        updateWidthIfNeed('right');
+
+        if (needUpdate) {
+          this.triggerUpdateEvent();
+
+        }
+
+        offset.right = rightOffset;
+        offset.left = leftOffset;
+        offset.width = props.width - leftOffset - rightOffset;
+      }
+
       Object.keys(axisObj).forEach((key) => {
         axisObj[key] = formatAxisMap(
           props, axisObj[key], offset, key.replace('Map', ''), chartName
@@ -815,6 +921,7 @@ const generateCategoricalChart = ({
     /* eslint-disable  no-underscore-dangle */
     addListener() {
       eventCenter.on(SYNC_EVENT, this.handleReceiveSyncEvent);
+      eventCenter.on(UPDATE_EVENT, this.handleUpdateEvent);
 
       if (eventCenter.setMaxListeners && eventCenter._maxListeners) {
         eventCenter.setMaxListeners(eventCenter._maxListeners + 1);
@@ -823,6 +930,7 @@ const generateCategoricalChart = ({
 
     removeListener() {
       eventCenter.removeListener(SYNC_EVENT, this.handleReceiveSyncEvent);
+      eventCenter.removeListener(UPDATE_EVENT, this.handleUpdateEvent);
 
       if (eventCenter.setMaxListeners && eventCenter._maxListeners) {
         eventCenter.setMaxListeners(eventCenter._maxListeners - 1);
@@ -896,6 +1004,24 @@ const generateCategoricalChart = ({
             props: this.props, dataStartIndex, dataEndIndex, updateId,
           })
         );
+      }
+    };
+
+
+    handleUpdateEvent = (cId, chartId) => {
+      const { syncId } = this.props;
+      const { updateId } = this.state;
+
+      if (syncId === cId && chartId !== this.uniqueChartId) {
+
+        this.setState(prevState => ({
+          updateId: updateId + 1,
+          ...this.updateStateOfAxisMapsOffsetAndStackGroups({
+            ...prevState,
+            updateId: updateId + 1,
+            props: this.props,
+          }),
+        }));
       }
     };
 
@@ -1108,6 +1234,14 @@ const generateCategoricalChart = ({
 
       if (!_.isNil(syncId)) {
         eventCenter.emit(SYNC_EVENT, syncId, this.uniqueChartId, data);
+      }
+    }
+
+    triggerUpdateEvent(data) {
+      const { syncId } = this.props;
+
+      if (!_.isNil(syncId)) {
+        eventCenter.emit(UPDATE_EVENT, syncId, this.uniqueChartId, data);
       }
     }
 

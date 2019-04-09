@@ -855,23 +855,39 @@ const generateCategoricalChart = ({
         }
 
         let needUpdate = false;
-        if (window.maxLeftWidthOfYAxis[props.syncId] === undefined) {
-          window.maxLeftWidthOfYAxis[props.syncId] = leftOffset;
-        } else if (window.maxLeftWidthOfYAxis[props.syncId] < leftOffset) {
-          window.maxLeftWidthOfYAxis[props.syncId] = leftOffset;
-          needUpdate = true;
-        } else {
-          leftOffset = window.maxLeftWidthOfYAxis[props.syncId];
-        }
 
-        if (window.maxRightWidthOfYAxis[props.syncId] === undefined) {
-          window.maxRightWidthOfYAxis[props.syncId] = rightOffset;
-        } else if (window.maxRightWidthOfYAxis[props.syncId] < rightOffset) {
-          window.maxRightWidthOfYAxis[props.syncId] = rightOffset;
-          needUpdate = true;
-        } else {
-          rightOffset = window.maxRightWidthOfYAxis[props.syncId];
-        }
+        const updateWidthIfNeed = (side) => {
+
+          const sideMaxWidth = side === 'left' ?
+            window.maxLeftWidthOfYAxis : window.maxRightWidthOfYAxis;
+
+          const sideOffset = side === 'left' ? leftOffset : rightOffset;
+
+          const ySideKeys = side === 'left' ? leftYKeys : rightYKeys;
+
+          const margin = side === 'left' ? props.margin.left : props.margin.right;
+
+          if (sideMaxWidth[props.syncId] === undefined) {
+            sideMaxWidth[props.syncId] = sideOffset;
+          } else if (sideMaxWidth[props.syncId] < sideOffset) {
+            sideMaxWidth[props.syncId] = sideOffset;
+            needUpdate = true;
+          } else {
+            if (side === 'left') {
+              leftOffset = sideMaxWidth[props.syncId];
+            } else {
+              rightOffset = sideMaxWidth[props.syncId];
+            }
+
+            // нужно для случая при котором у каждого леерса по 1 метрике в колонке - тогда нужно чтобы у них была одинаковая ширина
+            if (ySideKeys && ySideKeys[0] && ySideKeys.length === 1 && !axisObj.yAxisMap[ySideKeys[0]].mirror) {
+              axisObj.yAxisMap[ySideKeys[0]].width = sideMaxWidth[props.syncId] - margin;
+            }
+          }
+        };
+
+        updateWidthIfNeed('left');
+        updateWidthIfNeed('right');
 
         if (needUpdate) {
           this.triggerUpdateEvent();

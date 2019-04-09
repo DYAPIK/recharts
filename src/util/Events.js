@@ -8,3 +8,4 @@ if (eventCenter.setMaxListeners) {
 
 export { eventCenter };
 export const SYNC_EVENT = 'recharts.syncMouseEvents';
+export const UPDATE_EVENT = 'force_update';
